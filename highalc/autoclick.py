@@ -1,10 +1,12 @@
 import time
 import random
 import threading
+import numpy as np
 from PIL import ImageGrab
 from screeninfo import get_monitors
 from pynput.mouse import Button, Controller
 from pynput.keyboard import Listener, KeyCode
+
 
 # TODO
 """
@@ -50,6 +52,64 @@ screenshot = ImageGrab.grab()
 desired_color = screenshot.getpixel((x, y))
 del screenshot
 
+def jitter_mouse(top_left, bottom_right, speed=0.001, min_speed=0.0001):
+    current_x, current_y = mouse.position
+
+    if not (top_left[0] <= current_x <= bottom_right[0] and top_left[1] <= current_y <= bottom_right[1]):
+        print(f'mouse no bueno, x: {current_x} , y: {current_y}', top_left[0], top_left[1], bottom_right[0], bottom_right[1])
+        return  # Mouse is not within the specified rectangle, so don't move it
+
+    target_x, target_y = random_point_in_rectangle(top_left, bottom_right)
+    ease_out_move_mouse(target_x, target_y, speed, min_speed)
+
+def random_point_in_rectangle(top_left, bottom_right):
+    center_x = (top_left[0] + bottom_right[0]) / 2
+    center_y = (top_left[1] + bottom_right[1]) / 2
+    width = bottom_right[0] - top_left[0]
+    height = bottom_right[1] - top_left[1]
+
+    x = np.random.normal(center_x, width / 16)
+    y = np.random.normal(center_y, height / 16)
+
+    # Clamp the values to be within the rectangle
+    x = max(top_left[0], min(x, bottom_right[0]))
+    y = max(top_left[1], min(y, bottom_right[1]))
+
+    return x, y
+
+def ease_out_move_mouse(target_x, target_y, speed, min_speed):
+    current_x, current_y = mouse.position
+
+    while abs(current_x - target_x) > 1 or abs(current_y - target_y) > 1:
+        current_x, current_y = mouse.position
+        distance_x = abs(target_x - current_x)
+        distance_y = abs(target_y - current_y)
+
+        if random.choice([True, False]) and distance_x > 1:
+            step_x = np.sign(target_x - current_x)
+            new_x = current_x + step_x
+            mouse.position = (new_x, current_y)
+            current_x = new_x
+
+            # Apply ease-out effect to the speed
+            eased_speed = max(min_speed, speed * np.log10(distance_x + 1))
+            time.sleep(eased_speed)
+
+        if random.choice([True, False]) and distance_y > 1:
+            step_y = np.sign(target_y - current_y)
+            new_y = current_y + step_y
+            mouse.position = (current_x, new_y)
+            current_y = new_y
+
+            # Apply ease-out effect to the speed
+            eased_speed = max(min_speed, speed * np.log10(distance_y + 1))
+            time.sleep(eased_speed)
+
+        if random.choice([True, False]):
+            time.sleep(random.uniform(min_speed, speed))
+
+    mouse.position = (target_x, target_y)
+
 def clicker():
     global clicking
 
@@ -74,8 +134,17 @@ def clicker():
     mouse_release_min = 80
     mouse_release_max = 150
 
+    #mouse_jitter_chance = 0.177398
+
     while True:
         if clicking:
+            # jitter mouse
+            #if random.random() < mouse_jitter_chance:
+            top_left = (1423, 781)
+            bottom_right = (1430, 792)
+            jitter_mouse(top_left, bottom_right)
+
+
             # roll for a slow reaction times
             if previous_slow_reaction:
                 slow_reaction_chance += consecutive_slow_reaction_chance
